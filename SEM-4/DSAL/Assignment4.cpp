@@ -1,171 +1,228 @@
 #include <iostream>
+#include <vector>
+#include <string>
 #include <cstring>
-
 using namespace std;
 
 class Client {
+private:
     char name[20];
-    long long phone;
+    long long telephone;
 
 public:
-    Client() : phone(0) {
-        strcpy(name, "----");
+    Client() {
+        strcpy(name, "---");
+        telephone = 0;
     }
 
-    Client(const char n[], long long telephone) : phone(telephone) {
+    Client(char n[], long long tele) {
         strcpy(name, n);
+        telephone = tele;
     }
 
-    bool isEmpty() const {
-        return phone == 0;
+    void printDetails() {
+        cout << name << " " << telephone << endl;
     }
 
-    void printDetails() const {
-        cout.width(20);
-        cout << name << " ";
-        cout.width(20);
-        cout << phone << "\n";
+    long long getTelephone() {
+        return telephone;
     }
 
-    void readDetails() {
-        cout << "Enter client name: ";
-        cin >> name;
-        cout << "Enter client phone: ";
-        cin >> phone;
-    }
-
-    const char* getName() const {
-        return name;
-    }
+    friend class HashTable;
 };
 
-class Hashtable {
+class HashTable {
+private:
     int tableSize;
     Client* clients;
+    vector<vector<Client>> chainedTable;
 
-    int hashFunction(const char clientName[]) const {
-        int sum = 0;
-        for (int i = 0; i < strlen(clientName); i++)
-            sum += static_cast<int>(clientName[i]);
-        return sum % tableSize;
-    }
-
-    bool isOriginal(int index) const {
-        return hashFunction(clients[index].getName()) == index;
+    int hashFunction(long long key) {
+        return (key % tableSize);
     }
 
 public:
-    Hashtable(int size) : tableSize(size), clients(new Client[size]) {}
+    HashTable(int size) {
+        this->tableSize = size;
+        clients = new Client[tableSize];
+        chainedTable.resize(tableSize);
+    }
 
     void createTable() {
-        for (int i = 0; i < tableSize; i++)
+        for (int i = 0; i < tableSize; i++) {
             clients[i] = Client();
-    }
-
-    void insertClientWithoutReplacement(Client newClient) {
-        int index = hashFunction(newClient.getName());
-        while (!clients[index].isEmpty())
-            index = (index + 1) % tableSize;
-        clients[index] = newClient;
-    }
-
-    void insertClientWithReplacement(Client newClient) {
-        int index = hashFunction(newClient.getName());
-        if (clients[index].isEmpty()) {
-            clients[index] = newClient;
-        } else {
-            if (isOriginal(index)) {
-                while (!clients[index].isEmpty())
-                    index = (index + 1) % tableSize;
-                clients[index] = newClient;
-            } else {
-                Client existingClient = clients[index];
-                clients[index] = newClient;
-                while (!clients[index].isEmpty())
-                    index = (index + 1) % tableSize;
-                clients[index] = existingClient;
-            }
         }
     }
 
-    void search(const char clientName[]) const {
-        int index = hashFunction(clientName);
-        while (strcmp(clientName, clients[index].getName()) != 0 && !clients[index].isEmpty())
-            index = (index + 1) % tableSize;
+    void insertWithOpenAddressing(Client newClient) {
+        int index = hashFunction(newClient.getTelephone());
+        int comparisons = 0;
 
-        if (strcmp(clientName, clients[index].getName()) == 0)
-            cout << "Client exists" << endl;
-        else
-            cout << "No such client found" << endl;
-    }
-
-    void displayTable() const {
-        cout.width(10);
-        cout << "Client Name  ";
-        cout.width(10);
-        cout << "Telephone  \n";
-        for (int i = 0; i < tableSize; i++)
-            clients[i].printDetails();
-    }
-
-    ~Hashtable() {
-        delete[] clients;
-    }
-
-    void menu() {
-        int choice;
-        do {
-            cout << "\nMenu:\n";
-            cout << "1. Insert Client without Replacement\n";
-            cout << "2. Insert Client with Replacement\n";
-            cout << "3. Search for a Client\n";
-            cout << "4. Display Hashtable\n";
-            cout << "5. Exit\n";
-            cout << "Enter your choice: ";
-            cin >> choice;
-
-            switch (choice) {
-                case 1: {
-                    Client newClient;
-                    newClient.readDetails();
-                    insertClientWithoutReplacement(newClient);
-                    break;
-                }
-                case 2: {
-                    Client newClient;
-                    newClient.readDetails();
-                    insertClientWithReplacement(newClient);
-                    break;
-                }
-                case 3: {
-                    char clientName[20];
-                    cout << "Enter client name to search: ";
-                    cin >> clientName;
-                    search(clientName);
-                    break;
-                }
-                case 4:
-                    displayTable();
-                    break;
-                case 5:
-                    cout << "Exiting program.\n";
-                    break;
-                default:
-                    cout << "Invalid choice. Please try again.\n";
+        if (clients[index].getTelephone() == 0) {
+            clients[index] = newClient;
+        } else {
+            int currIndex = index;
+            comparisons++;
+            while (clients[currIndex].getTelephone() != 0) {
+                currIndex = (currIndex + 1) % tableSize;
+                comparisons++;
             }
+            clients[currIndex] = newClient;
+        }
 
-        } while (choice != 5);
+        cout << "Number of comparisons (Open Addressing): " << comparisons << endl;
+    }
+
+    void insertWithChaining(Client newClient) {
+        int index = hashFunction(newClient.getTelephone());
+        int comparisons = 0;
+
+        chainedTable[index].push_back(newClient);
+        comparisons += chainedTable[index].size();
+
+        cout << "Number of comparisons (Chaining): " << comparisons << endl;
+    }
+
+    bool findWithOpenAddressing(long long telephone, int& comparisons) {
+        int index = hashFunction(telephone);
+        comparisons = 0;
+
+        if (clients[index].getTelephone() == telephone) {
+            comparisons++;
+            return true;
+        } else {
+            int currIndex = index;
+            comparisons++;
+            while (clients[currIndex].getTelephone() != 0) {
+                if (clients[currIndex].getTelephone() == telephone) {
+                    comparisons++;
+                    return true;
+                }
+                currIndex = (currIndex + 1) % tableSize;
+                comparisons++;
+            }
+        }
+
+        return false;
+    }
+
+    bool findWithChaining(long long telephone, int& comparisons) {
+        int index = hashFunction(telephone);
+        comparisons = 0;
+
+        for (Client client : chainedTable[index]) {
+            comparisons++;
+            if (client.getTelephone() == telephone) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    void displayOpenAddressingTable() {
+        cout << "Open Addressing Table:" << endl;
+        for (int i = 0; i < tableSize; i++) {
+            if (clients[i].getTelephone() != 0) {
+                cout << "Index " << i << ": ";
+                clients[i].printDetails();
+            }
+        }
+        cout << endl;
+    }
+
+    void displayChainedTable() {
+        cout << "Chained Table:" << endl;
+        for (int i = 0; i < tableSize; i++) {
+            cout << "Index " << i << ": ";
+            for (Client client : chainedTable[i]) {
+                client.printDetails();
+            }
+            cout << endl;
+        }
     }
 };
 
 int main() {
-    int tableSize;
-    cout << "Enter hashtable size: ";
+    int n, tableSize;
+    cout << "Enter the number of clients: ";
+    cin >> n;
+    cout << "Enter the table size: ";
     cin >> tableSize;
 
-    Hashtable table(tableSize);
-    table.createTable();
-    table.menu();
+    HashTable openAddressingTable(tableSize);
+    HashTable chainedTable(tableSize);
+
+    openAddressingTable.createTable();
+    chainedTable.createTable();
+
+    char name[20];
+    long long telephone;
+
+    cout << "Enter client details (name and telephone number):" << endl;
+    vector<Client> clients;
+    for (int i = 0; i < n; i++) {
+        cin >> name >> telephone;
+        Client newClient(name, telephone);
+        clients.push_back(newClient);
+    }
+
+    int choice;
+    long long searchTelephone;
+    int comparisons;
+    bool found;
+
+    do {
+        cout << "\nChoose an option:\n";
+        cout << "1. Insert with Open Addressing\n";
+        cout << "2. Insert with Chaining\n";
+        cout << "3. Find with Open Addressing\n";
+        cout << "4. Find with Chaining\n";
+        cout << "5. Exit\n";
+        cout << "Enter your choice: ";
+        cin >> choice;
+
+        switch (choice) {
+            case 1:
+            for (Client client : clients) {
+                openAddressingTable.insertWithOpenAddressing(client);
+            }
+            openAddressingTable.displayOpenAddressingTable();
+            break;
+        case 2:
+            for (Client client : clients) {
+                chainedTable.insertWithChaining(client);
+            }
+            chainedTable.displayChainedTable();
+            break;
+            case 3:
+                cout << "Enter a telephone number to find: ";
+                cin >> searchTelephone;
+                found = openAddressingTable.findWithOpenAddressing(searchTelephone, comparisons);
+                cout << "Open Addressing: ";
+                if (found) {
+                    cout << "Number found after " << comparisons << " comparisons." << endl;
+                } else {
+                    cout << "Number not found after " << comparisons << " comparisons." << endl;
+                }
+                break;
+            case 4:
+                cout << "Enter a telephone number to find: ";
+                cin >> searchTelephone;
+                found = chainedTable.findWithChaining(searchTelephone, comparisons);
+                cout << "Chaining: ";
+                if (found) {
+                    cout << "Number found after " << comparisons << " comparisons." << endl;
+                } else {
+                    cout << "Number not found after " << comparisons << " comparisons." << endl;
+                }
+                break;
+            case 5:
+                break;
+            default:
+                cout << "Invalid choice. Please try again." << endl;
+        }
+    } while (choice != 5);
 
     return 0;
 }
